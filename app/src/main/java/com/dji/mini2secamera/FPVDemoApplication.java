@@ -68,10 +68,11 @@ public class FPVDemoApplication extends Application{
         super.onCreate();
         mHandler = new Handler(Looper.getMainLooper());
 
-        /**
+        /*
          * When starting SDK services, an instance of interface DJISDKManager.DJISDKManagerCallback will be used to listen to
          * the SDK Registration result and the product changing.
          */
+
         //Listens to the SDK registration result
         DJISDKManager.SDKManagerCallback mDJISDKManagerCallback = new DJISDKManager.SDKManagerCallback() {
 
@@ -80,20 +81,10 @@ public class FPVDemoApplication extends Application{
             public void onRegister(DJIError djiError) {
                 Handler handler = new Handler(Looper.getMainLooper());
                 if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(), "SDK register success", Toast.LENGTH_LONG).show();
-                        }
-                    });
+                    handler.post(() -> Toast.makeText(getApplicationContext(), "SDK register success", Toast.LENGTH_LONG).show());
                     DJISDKManager.getInstance().startConnectionToProduct();
                 } else {
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(), "SDK register fail", Toast.LENGTH_LONG).show();
-                        }
-                    });
+                    handler.post(() -> Toast.makeText(getApplicationContext(), "SDK register fail", Toast.LENGTH_LONG).show());
 
                 }
             }
@@ -116,12 +107,7 @@ public class FPVDemoApplication extends Application{
             @Override
             public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent, BaseComponent newComponent) {
                 if (newComponent != null) {
-                    newComponent.setComponentListener(new BaseComponent.ComponentListener() {
-                        @Override
-                        public void onConnectivityChange(boolean isConnected) {
-                            notifyStatusChange();
-                        }
-                    });
+                    newComponent.setComponentListener(isConnected -> notifyStatusChange());
                 }
             }
 
@@ -155,11 +141,8 @@ public class FPVDemoApplication extends Application{
         mHandler.postDelayed(updateRunnable, 500);
     }
 
-    private final Runnable updateRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Intent intent = new Intent(FLAG_CONNECTION_CHANGE);
-            getApplicationContext().sendBroadcast(intent);
-        }
+    private final Runnable updateRunnable = () -> {
+        Intent intent = new Intent(FLAG_CONNECTION_CHANGE);
+        getApplicationContext().sendBroadcast(intent);
     };
 }

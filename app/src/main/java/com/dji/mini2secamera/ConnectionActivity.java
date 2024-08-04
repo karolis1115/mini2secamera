@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import dji.common.error.DJIError;
@@ -57,6 +59,7 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
     private final AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
     private static final int REQUEST_PERMISSION_CODE = 12345;
 
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,7 +69,7 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
         // Register the broadcast receiver for receiving the device connection's changes.
         IntentFilter filter = new IntentFilter();
         filter.addAction(FPVDemoApplication.FLAG_CONNECTION_CHANGE);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
     /**
@@ -83,7 +86,7 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
         // Request for missing permissions
         if (!missingPermission.isEmpty()) {
             ActivityCompat.requestPermissions(this,
-                    missingPermission.toArray(new String[missingPermission.size()]),
+                    missingPermission.toArray(new String[0]),
                     REQUEST_PERMISSION_CODE);
         }
     }
@@ -112,73 +115,64 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
 
     private void startSDKRegistration() {
         if (isRegistrationInProgress.compareAndSet(false, true)) {
-            AsyncTask.execute(new Runnable() {
-                @Override
-                public void run() {
-                    showToast( "registering, pls wait...");
-                    DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
-                        @Override
-                        public void onRegister(DJIError djiError) {
-                            if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
-                                DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
-                                DJISDKManager.getInstance().startConnectionToProduct();
-                                showToast("Register Success");
-                            } else {
-                                showToast( "Register sdk fails, check network is available");
-                            }
-                            Log.v(TAG, djiError.getDescription());
+            AsyncTask.execute(() -> {
+                showToast( "registering, pls wait...");
+                DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
+                    @Override
+                    public void onRegister(DJIError djiError) {
+                        if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
+                            DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
+                            DJISDKManager.getInstance().startConnectionToProduct();
+                            showToast("Register Success");
+                        } else {
+                            showToast( "Register sdk fails, check network is available");
                         }
+                        Log.v(TAG, djiError.getDescription());
+                    }
 
-                        @Override
-                        public void onProductDisconnect() {
-                            Log.d(TAG, "onProductDisconnect");
-                            showToast("Product Disconnected");
+                    @Override
+                    public void onProductDisconnect() {
+                        Log.d(TAG, "onProductDisconnect");
+                        showToast("Product Disconnected");
 
+                    }
+                    @Override
+                    public void onProductConnect(BaseProduct baseProduct) {
+                        Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
+                        showToast("Product Connected");
+
+                    }
+
+                    @Override
+                    public void onProductChanged(BaseProduct baseProduct) {
+
+                    }
+
+                    @Override
+                    public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
+                                                  BaseComponent newComponent) {
+
+                        if (newComponent != null) {
+                            newComponent.setComponentListener(isConnected -> Log.d(TAG, "onComponentConnectivityChanged: " + isConnected));
                         }
-                        @Override
-                        public void onProductConnect(BaseProduct baseProduct) {
-                            Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
-                            showToast("Product Connected");
+                        Log.d(TAG,
+                                String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
+                                        componentKey,
+                                        oldComponent,
+                                        newComponent));
 
-                        }
+                    }
 
-                        @Override
-                        public void onProductChanged(BaseProduct baseProduct) {
+                    @Override
+                    public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
 
-                        }
+                    }
 
-                        @Override
-                        public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
-                                                      BaseComponent newComponent) {
+                    @Override
+                    public void onDatabaseDownloadProgress(long l, long l1) {
 
-                            if (newComponent != null) {
-                                newComponent.setComponentListener(new BaseComponent.ComponentListener() {
-
-                                    @Override
-                                    public void onConnectivityChange(boolean isConnected) {
-                                        Log.d(TAG, "onComponentConnectivityChanged: " + isConnected);
-                                    }
-                                });
-                            }
-                            Log.d(TAG,
-                                    String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
-                                            componentKey,
-                                            oldComponent,
-                                            newComponent));
-
-                        }
-
-                        @Override
-                        public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
-
-                        }
-
-                        @Override
-                        public void onDatabaseDownloadProgress(long l, long l1) {
-
-                        }
-                    });
-                }
+                    }
+                });
             });
         }
     }
@@ -236,8 +230,7 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
             mBtnOpen.setEnabled(true);
 
             String str = mProduct instanceof Aircraft ? "DJIAircraft" : "DJIHandHeld";
-            mTextConnectionStatus.setText("Status: " + str + " connected");
-
+            mTextConnectionStatus.setText(String.format("Status: %s connected", str));
             if (null != mProduct.getModel()) {
                 mTextProduct.setText(mProduct.getModel().getDisplayName());
             } else {
@@ -263,12 +256,6 @@ public class ConnectionActivity extends Activity implements View.OnClickListener
     }
 
     private void showToast(final String toastMsg) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(getApplicationContext(), toastMsg, Toast.LENGTH_LONG).show();
-
-            }
-        });
+        runOnUiThread(() -> Toast.makeText(getApplicationContext(), toastMsg, Toast.LENGTH_LONG).show());
     }
 }
