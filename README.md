@@ -1,5 +1,5 @@
 # mini2secamera 
-A clone of [Android-FPVDemo](https://github.com/DJI-Mobile-SDK-Tutorials/Android-FPVDemo) with some modification to get the project up-to-date'ish
+A clone of [Android-FPVDemo](https://github.com/DJI-Mobile-SDK-Tutorials/Android-FPVDemo) with some modification to get the project up-to-date'ish and currently stripped down to only show a livestream of the camera feed
 - Removed Some deprecated dependencies
 - Fixed some warnings in code
 - Updated out-of-date dependencies
